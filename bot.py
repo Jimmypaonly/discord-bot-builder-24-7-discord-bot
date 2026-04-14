@@ -1,11 +1,11 @@
-# app.py
+# bot.py - Complete file for Render deployment
 from flask import Flask, render_template_string, jsonify
 import discord
 from discord.ext import commands
 import asyncio
 import threading
 import os
-from typing import Optional
+import re
 import logging
 
 # Configure logging
@@ -64,7 +64,7 @@ async def on_message(message):
         if content == "make all channels private":
             channels = []
             for channel in guild.channels:
-                if isinstance(channel, (discord.TextChannel, discord.VoiceChannel, discord.TextChannel)):
+                if isinstance(channel, (discord.TextChannel, discord.VoiceChannel)):
                     channels.append(channel)
             
             count = 0
@@ -76,7 +76,6 @@ async def on_message(message):
             return
         
         # Show #channel to everyone
-        import re
         show_match = re.match(r'^show\s+<#(\d+)>\s+to\s+everyone$', content)
         if show_match:
             channel_id = int(show_match.group(1))
@@ -100,7 +99,7 @@ async def on_message(message):
             
             channels = []
             for channel in guild.channels:
-                if isinstance(channel, (discord.TextChannel, discord.VoiceChannel, discord.TextChannel)):
+                if isinstance(channel, (discord.TextChannel, discord.VoiceChannel)):
                     channels.append(channel)
             
             count = 0
@@ -152,18 +151,6 @@ async def on_message(message):
 async def on_error(event, *args, **kwargs):
     logger.error(f"Discord client error in {event}")
 
-def run_bot():
-    """Run the Discord bot"""
-    token = os.getenv('DISCORD_BOT_TOKEN')
-    if not token:
-        logger.warning("DISCORD_BOT_TOKEN not set — bot will not start")
-        return
-    
-    try:
-        bot.run(token)
-    except Exception as e:
-        logger.error(f"Failed to log in to Discord: {e}")
-
 @app.route('/')
 def index():
     """Home page showing bot status"""
@@ -182,6 +169,7 @@ def index():
                 padding: 50px;
                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 color: white;
+                margin: 0;
             }
             .container {
                 background: rgba(255, 255, 255, 0.1);
@@ -233,9 +221,15 @@ def index():
                 border-radius: 5px;
                 cursor: pointer;
                 margin-top: 20px;
+                font-size: 16px;
             }
             button:hover {
                 background: #45a049;
+            }
+            .footer {
+                margin-top: 30px;
+                font-size: 12px;
+                opacity: 0.8;
             }
         </style>
     </head>
@@ -255,6 +249,9 @@ def index():
                 <div class="command">@Bot help</div>
             </div>
             <button onclick="location.reload()">🔄 Refresh Status</button>
+            <div class="footer">
+                <small>Bot needs Administrator permissions to work properly</small>
+            </div>
         </div>
     </body>
     </html>
@@ -270,6 +267,21 @@ def status():
         'status': 'running' if bot_running else 'stopped'
     })
 
+def run_bot():
+    """Run the Discord bot"""
+    token = os.getenv('DISCORD_BOT_TOKEN')
+    if not token:
+        logger.warning("DISCORD_BOT_TOKEN not set — bot will not start")
+        print("❌ ERROR: DISCORD_BOT_TOKEN environment variable not set!")
+        print("Please set it in Render Dashboard under Environment Variables")
+        return
+    
+    try:
+        bot.run(token)
+    except Exception as e:
+        logger.error(f"Failed to log in to Discord: {e}")
+        print(f"❌ Failed to start bot: {e}")
+
 def start_bot_thread():
     """Start the Discord bot in a separate thread"""
     global bot_thread
@@ -277,20 +289,31 @@ def start_bot_thread():
         bot_thread = threading.Thread(target=run_bot, daemon=True)
         bot_thread.start()
         logger.info("Bot thread started")
+        print("🚀 Bot thread started successfully")
 
 if __name__ == '__main__':
     # Get token from environment variable
     token = os.getenv('DISCORD_BOT_TOKEN')
     if not token:
-        print("⚠️  Warning: DISCORD_BOT_TOKEN environment variable not set")
-        print("Please set it using: export DISCORD_BOT_TOKEN='your_token_here'")
+        print("=" * 50)
+        print("⚠️  WARNING: DISCORD_BOT_TOKEN environment variable not set")
+        print("Please set it in Render Dashboard:")
+        print("  - Go to your service → Environment → Add Environment Variable")
+        print("  - Key: DISCORD_BOT_TOKEN")
+        print("  - Value: your_discord_bot_token_here")
+        print("=" * 50)
+    else:
+        print("=" * 50)
+        print("✅ DISCORD_BOT_TOKEN found!")
     
     # Start the Discord bot in a background thread
     start_bot_thread()
     
     # Run Flask server
     port = int(os.getenv('PORT', 5000))
-    print(f"\n🌐 Flask server starting on http://localhost:{port}")
-    print("Press Ctrl+C to stop the server\n")
+    print(f"\n🌐 Flask server starting on port {port}")
+    print(f"📊 Web dashboard available at: http://localhost:{port}")
+    print("=" * 50)
+    print("\n🚀 Bot is starting... Press Ctrl+C to stop the server\n")
     
     app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
